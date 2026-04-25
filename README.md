@@ -18,8 +18,23 @@ Runtime environment:
 
 ## Build
 
-Run from `upstream/acmed_gen2`:
+Run from this repository root:
 
 ```bash
-docker build -f acmed-issuer-certbot/docker/Dockerfile -t acmed-issuer-certbot:0.2.0 .
+docker build -f docker/Dockerfile -t acmed-issuer-certbot:0.2.0 .
 ```
+
+Optional SDK source override:
+
+```bash
+docker build -f docker/Dockerfile \
+  --build-arg ACMED_PLUGIN_SDK_SPEC='acmed-plugin-sdk>=0.2.0' \
+  --build-arg ACMED_PLUGIN_SDK_FALLBACK='https://example.org/acmed-plugin-sdk-0.2.0.tar.gz' \
+  -t acmed-issuer-certbot:0.2.0 .
+```
+
+## CI and Release
+
+- CI workflow: `.github/workflows/ci.yml`
+- Tag release workflow: `.github/workflows/release.yml`
+- Release process notes: [`RELEASE.md`](RELEASE.md)

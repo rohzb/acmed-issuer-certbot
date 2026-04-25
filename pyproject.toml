@@ -2,10 +2,32 @@
 name = "acmed-issuer-certbot"
 version = "0.2.0"
 description = "certbot remote issuer plugin for acmed gen2"
+readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
+authors = [
+  {name = "ACMed Contributors"}
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Security",
+]
 dependencies = [
   "acmed-plugin-sdk>=0.2.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/rohzb/acmed-issuer-certbot"
+Repository = "https://github.com/rohzb/acmed-issuer-certbot"
+Issues = "https://github.com/rohzb/acmed-issuer-certbot/issues"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+  "build>=1.2.0",
 ]
 
 [build-system]
@@ -17,3 +39,7 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
