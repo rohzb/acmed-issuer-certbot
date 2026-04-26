@@ -93,6 +93,37 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
+      - name: Resolve plugin base image tag from SDK dependency
+        id: sdk_base
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import re
+          import tomllib
+
+          with open("pyproject.toml", "rb") as f:
+              data = tomllib.load(f)
+
+          deps = data.get("project", {}).get("dependencies", [])
+          dep = next((d for d in deps if d.startswith("acmed-plugin-sdk")), None)
+          if dep is None:
+              raise SystemExit("acmed-plugin-sdk dependency not found in pyproject.toml")
+
+          match = re.search(r"/refs/tags/(v[0-9]+\.[0-9]+\.[0-9]+)\.tar\.gz", dep)
+          if match:
+              base_tag = match.group(1)
+          else:
+              match = re.search(r"==([0-9]+\.[0-9]+\.[0-9]+)", dep)
+              if not match:
+                  raise SystemExit(
+                      f"Unable to derive base image tag from acmed-plugin-sdk dependency: {dep}"
+                  )
+              base_tag = f"v{match.group(1)}"
+
+          with open("${GITHUB_OUTPUT}", "a", encoding="utf-8") as out:
+              out.write(f"base_tag={base_tag}\n")
+          PY
+
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
@@ -118,7 +149,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            ACMED_PLUGIN_BASE_IMAGE=ghcr.io/rohzb/acmed-plugin-base-image:${{ github.ref_name }}
+            ACMED_PLUGIN_BASE_IMAGE=ghcr.io/rohzb/acmed-plugin-base-image:${{ steps.sdk_base.outputs.base_tag }}
 
   publish-pypi:
     runs-on: ubuntu-latest
