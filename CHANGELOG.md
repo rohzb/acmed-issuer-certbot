@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.2] - 2026-04-26
+
+### Fixed
+- Corrected workflow output handling for resolved SDK-derived base image tag
+  (`GITHUB_OUTPUT`) so GHCR builds no longer render an empty base-image tag.
+
 ## [0.2.1] - 2026-04-26
 
 ### Fixed

@@ -120,7 +120,9 @@ jobs:
                   )
               base_tag = f"v{match.group(1)}"
 
-          with open("${GITHUB_OUTPUT}", "a", encoding="utf-8") as out:
+          import os
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
               out.write(f"base_tag={base_tag}\n")
           PY
 
