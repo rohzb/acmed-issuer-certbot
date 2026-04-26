@@ -2,28 +2,31 @@ name: CI
 
 on:
   push:
-    branches: [master, main]
+    branches: [main]
   pull_request:
 
 permissions:
   contents: read
+  packages: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: "3.12"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install "acmed-plugin-sdk>=0.2.0"
           pip install .[dev]
 
       - name: Run tests
@@ -33,10 +36,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build image
-        run: docker build -f docker/Dockerfile -t acmed-issuer-certbot:ci .
+        run: |
+          docker build \
+            -f docker/Dockerfile \
+            --build-arg ACMED_PLUGIN_BASE_IMAGE='ghcr.io/rohzb/acmed-plugin-base-image:v0.2.0' \
+            -t acmed-issuer-certbot:ci .
+
+      - name: Smoke test image
+        run: |
+          cid=$(docker run -d -p 18082:8081 -e ACMED_REMOTE_PLUGIN_TOKEN=test-token acmed-issuer-certbot:ci)
+          trap 'docker rm -f "$cid" >/dev/null 2>&1 || true' EXIT
+          sleep 3
+          curl -fsS http://127.0.0.1:18082/healthz

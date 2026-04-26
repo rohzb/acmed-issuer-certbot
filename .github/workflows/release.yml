@@ -3,45 +3,98 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - "v*.*.*"
 
 permissions:
+  actions: read
+  checks: read
   contents: write
   packages: write
   id-token: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+
 jobs:
-  build-python:
+  verify_ci:
     runs-on: ubuntu-latest
     steps:
+      - name: Verify CI workflow succeeded on tagged commit
+        uses: rohzb/ci-actions/wait-for-workflows@fa15ae6132d071b36c875d64979fa70019b0e49f
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          workflows: '["CI"]'
+          ref: ${{ github.sha }}
+          mode: all_success
+          timeout-seconds: "1200"
+          poll-interval-seconds: "15"
+          require-found: "true"
+          fail-fast: "false"
+
+  build-python:
+    runs-on: ubuntu-latest
+    needs: [verify_ci]
+    steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: "3.12"
 
-      - name: Build sdist and wheel
+      - name: Validate tag and project version
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Tag must match vX.Y.Z, got: ${TAG}" >&2
+            exit 1
+          fi
+          VERSION="${TAG#v}"
+          PROJECT_VERSION="$(python - <<'PY'
+          import tomllib
+          with open("pyproject.toml", "rb") as f:
+              data = tomllib.load(f)
+          print(data["project"]["version"])
+          PY
+          )"
+          if [[ "${PROJECT_VERSION}" != "${VERSION}" ]]; then
+            echo "Tag version (${VERSION}) does not match pyproject.toml (${PROJECT_VERSION})." >&2
+            exit 1
+          fi
+          if ! grep -qE "^## \\[${VERSION}\\] " CHANGELOG.md; then
+            echo "CHANGELOG.md is missing a section for [${VERSION}]." >&2
+            exit 1
+          fi
+
+      - name: Run tests
         run: |
           python -m pip install --upgrade pip
+          pip install .[dev]
+          pytest
+
+      - name: Build sdist and wheel
+        run: |
           pip install build
           python -m build
 
       - name: Upload dist artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: python-dist
           path: dist/*
 
   publish-ghcr:
     runs-on: ubuntu-latest
+    needs: [build-python]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -49,7 +102,7 @@ jobs:
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
@@ -57,42 +110,44 @@ jobs:
             type=sha
 
       - name: Build and push image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
         with:
           context: .
           file: docker/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            ACMED_PLUGIN_BASE_IMAGE=ghcr.io/rohzb/acmed-plugin-base-image:${{ github.ref_name }}
 
   publish-pypi:
     runs-on: ubuntu-latest
     needs: [build-python]
-    if: ${{ secrets.PYPI_API_TOKEN != '' }}
     steps:
       - name: Download dist artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: python-dist
           path: dist
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        if: ${{ env.PYPI_API_TOKEN != '' }}
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b
         with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          password: ${{ env.PYPI_API_TOKEN }}
 
   github-release:
     runs-on: ubuntu-latest
     needs: [build-python, publish-ghcr]
     steps:
       - name: Download dist artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: python-dist
           path: dist
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         with:
           generate_release_notes: true
           files: |

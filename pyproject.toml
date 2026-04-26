@@ -16,7 +16,7 @@ classifiers = [
   "Topic :: Security",
 ]
 dependencies = [
-  "acmed-plugin-sdk>=0.2.0",
+  "acmed-plugin-sdk @ https://github.com/rohzb/acmed-plugin-sdk/archive/refs/tags/v0.2.0.tar.gz",
 ]
 
 [project.urls]

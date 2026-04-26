@@ -1,10 +1,8 @@
-FROM python:3.12-slim
+ARG ACMED_PLUGIN_BASE_IMAGE=ghcr.io/rohzb/acmed-plugin-base-image:v0.2.0
+FROM ${ACMED_PLUGIN_BASE_IMAGE}
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
-
-ARG ACMED_PLUGIN_SDK_SPEC=acmed-plugin-sdk>=0.2.0
-ARG ACMED_PLUGIN_SDK_FALLBACK=
 
 WORKDIR /opt/plugin
 
@@ -16,10 +14,8 @@ RUN apt-get update \
 
 COPY pyproject.toml README.md /opt/plugin/
 COPY src /opt/plugin/src
-RUN pip install --no-cache-dir "${ACMED_PLUGIN_SDK_SPEC}" \
-    || (test -n "${ACMED_PLUGIN_SDK_FALLBACK}" && pip install --no-cache-dir "${ACMED_PLUGIN_SDK_FALLBACK}")
 RUN pip install --no-cache-dir . \
     && pip install --no-cache-dir "uvicorn>=0.30.0"
 
 EXPOSE 8081
-CMD ["python", "-m", "uvicorn", "plugin_service.main:app", "--host", "0.0.0.0", "--port", "8081"]
+CMD ["python", "-m", "uvicorn", "acmed_issuer_certbot.service:app", "--host", "0.0.0.0", "--port", "8081"]
