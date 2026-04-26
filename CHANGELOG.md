@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.1] - 2026-04-26
+
+### Fixed
+- Release workflow now resolves the plugin base image tag from the pinned
+  `acmed-plugin-sdk` dependency instead of assuming it matches the issuer tag.
+- This prevents GHCR build failures when issuer and SDK versions diverge.
+
 ## [0.2.0] - 2026-04-25
 
 ### Added

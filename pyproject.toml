@@ -1,6 +1,6 @@
 [project]
 name = "acmed-issuer-certbot"
-version = "0.2.0"
+version = "0.2.1"
 description = "certbot remote issuer plugin for acmed gen2"
 readme = "README.md"
 requires-python = ">=3.11"
